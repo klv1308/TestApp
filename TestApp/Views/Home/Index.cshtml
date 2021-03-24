@@ -1,0 +1,168 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <div id="content">
+        <div class="form-group" id="filter" style="text-align: left;">
+            <div class="row">
+                <div class="col">
+                    <label for="numberFilter">Number</label>
+                    <input type="text" class="form-control" id="numberFilter" placeholder="Order number">
+                </div>
+                <div class="col">
+                    <label for="nameFilter">Name</label>
+                    <input type="text" class="form-control" id="nameFilter" placeholder="Order name">
+                </div>
+                <div class="col">
+                    <label for="categoryFilter">Category</label>
+                    <select id="categoryFilter" class="form-control">
+                        <option></option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                    </select>
+                    @*<input type="text" class="form-control" id="categoryFilter" placeholder="Order category">*@
+                </div>
+                <div class="col" style="padding-top: 30px;">
+                    <button id="findButton" type="button" class="btn btn-primary">Find</button>
+                    <button id="exportButton" type="button" class="btn btn-primary">Export</button>
+                </div>
+            </div>
+        </div>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Number</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Price</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-end">
+                <li class="page-item disabled">
+                    <a id="prevPage" class="page-link" href="#">Previous</a>
+                </li>
+                <li class="page-item"><a id="pageNumber" class="page-link" href="#">1</a></li>
+                <li class="page-item">
+                    <a id="nextPage" class="page-link" href="#">Next</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+
+@section Scripts{
+    <script>
+        var _data;
+        var _pagination = {
+            prevPageNumber: null,
+            nextPageNumber: 2,
+            pageSize: 10,
+            pageNumber: 1
+        }
+
+        $(document).ready(function () {
+
+                $('#nextPage').click(function (e) {
+                    e.preventDefault();
+                    GetData(_pagination.pageSize, _pagination.nextPageNumber);
+                    return false;
+                });
+
+                $('#prevPage').click(function (e) {
+                    e.preventDefault();
+                    GetData(_pagination.pageSize, _pagination.prevPageNumber);
+                    return false;
+                });
+
+                $('#findButton').click(function (e) {
+                    _pagination.pageNumber = 1
+                    GetData(_pagination.pageSize, _pagination.pageNumber);
+                });
+
+                $('#exportButton').click(function (e) {
+                    download_csv();
+                });
+
+                GetData(_pagination.pageSize, _pagination.pageNumber);
+            });
+
+        function download_csv() {
+                let csv = 'Number,Name,Category,Price\n';
+                let pageStartIndex = (_pagination.pageNumber - 1) * _pagination.pageSize + 1;
+                _data.forEach(function (row) {
+                    //csv += Object.values(row).join(',');
+                    csv +=  row.number +
+                        "," + row.name +
+                        "," + row.category +
+                        "," + row.price.toFixed(2);
+                    csv += "\n";
+                });
+
+                let hiddenElement = document.createElement('a');
+                hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
+                hiddenElement.target = '_blank';
+                hiddenElement.download = 'orders.csv';
+                hiddenElement.click();
+            }
+
+            function GetData(pageSize, pageNumber) {
+            $.ajax({
+                url: "@Url.Action("Get","Order")",
+                type: "GET",
+                data: {
+                    pageSize: pageSize,
+                    pageNumber: pageNumber,
+                    name: $("#nameFilter").val(),
+                    category: $("#categoryFilter").val(),
+                    number: $("#numberFilter").val()
+                },
+                dataType: 'json',
+                success: function (response) {
+                    _pagination.pageNumber = response.pageNumber;
+
+                    _pagination.prevPageNumber = response.prevPage;
+                    if (_pagination.prevPageNumber == null)
+                        $('#prevPage').parent().addClass("disabled")
+                    else
+                        $('#prevPage').parent().removeClass("disabled")
+
+
+                    _pagination.nextPageNumber = response.nextPage;
+                    if (_pagination.nextPageNumber == null)
+                        $('#nextPage').parent().addClass("disabled")
+                    else
+                        $('#nextPage').parent().removeClass("disabled")
+
+
+                    $("#pageNumber").text(_pagination.pageNumber);
+                    $("#content tbody tr").remove();
+                    let pageStartIndex = (_pagination.pageNumber - 1) * _pagination.pageSize + 1;
+
+                    _data = response.data;
+                    let htmlString;
+                    _data.forEach(function (row, index) {
+                        htmlString +=
+                            "<tr><td>" + (pageStartIndex + index) +
+                            "</td><td>" + row.number +
+                            "</td><td>" + row.name +
+                            "</td><td>" + row.category +
+                            "</td><td>" + row.price.toFixed(2) +
+                            "</td></tr>";
+                    });                   
+                    $("#content tbody").append(htmlString);
+                },
+                error: function (error) {
+                    console.log("Something went wrong", error);
+                }
+            });
+        }
+    </script>
+}
